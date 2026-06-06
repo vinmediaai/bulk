@@ -778,8 +778,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 // ══ CONFIG ═══════════════════════════════════════════════════════════
 const SB_URL  = 'https://rqzflfyqazklfnfxefct.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxemZsZnlxYXprbGZuZnhlZmN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjgxMDIsImV4cCI6MjA5MTgwNDEwMn0.q3F9dEDdNQ7kBGtReTQx6r8wvgGks5lL-ThZAi2uPEY';
-const WEBHOOK_A  = 'https://n8n.vinmediaai.online/webhook/vinsnap-batch-init';   // Step 1: get jobId
-const WEBHOOK_B  = 'https://n8n.vinmediaai.online/webhook/vinsnap-batch-submit';   // Step 3: trigger processing
+const WEBHOOK_A  = 'https://vinsnap-init-h5clk64lsa-uc.a.run.app';   // Step 1: get jobId
+const WEBHOOK_B  = 'https://vinsnap-process-h5clk64lsa-uc.a.run.app';   // Step 3: trigger processing
 const GCS_BUCKET = 'vinsnap-batch-us';
 const { createClient } = window.supabase;
 const sb = createClient(SB_URL, SB_KEY);
