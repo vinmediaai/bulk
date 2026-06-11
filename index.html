@@ -309,6 +309,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 <div class="tab-bar">
   <button class="tab-btn active" id="tab-batch" onclick="switchTab('batch')">✨ Generate Photos</button>
   <button class="tab-btn" id="tab-jobs" onclick="switchTab('jobs')">📋 My Jobs</button>
+  <button class="tab-btn" id="tab-newjob" onclick="startNewJob()" style="display:none;margin-left:auto;color:var(--accent);border-bottom-color:transparent">＋ New Job</button>
 </div>
 <div id="page-batch" class="tab-page active">
 
@@ -915,8 +916,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <button class="newbtn" onclick="pollStatus()" id="refreshBtn" style="margin:0;padding:8px 18px;font-size:.82rem">
         🔄 Refresh Now
       </button>
-      <button class="newbtn" onclick="resetAll()" style="margin:0;padding:8px 18px;font-size:.82rem;border-color:var(--dim);color:var(--dim)">
-        + New Job
+      <button class="newbtn" onclick="startNewJob()" style="margin:0;padding:8px 18px;font-size:.82rem;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:var(--accent)">
+        ＋ Start New Job
       </button>
     </div>
   </div>
@@ -1033,6 +1034,7 @@ sb.auth.onAuthStateChange((_e, session) => {
     badge.textContent = 'Sign in to use';
     emailDisp.value = '';
     clearInterval(_pollTimer);
+    document.getElementById('tab-newjob').style.display = 'none';
   }
   checkReady();
 });
@@ -1214,11 +1216,10 @@ async function doSubmit() {
 
   const config = {
     productName: name, category: cat, subcategory: sub,
-    email: deliveryEmail, mode: genMode,
+    email: user.email, deliveryEmail: deliveryEmail, mode: genMode,
     avatarId:        genMode==='custom' ? avatarId        : 'dynamic',
     avatarCountry:   genMode==='custom' ? avatarCountry   : 'india',
     locationVariant: genMode==='custom' ? 'dynamic'       : 'dynamic',
-    // FIX: pass the actual location label as customLocation so backend uses it directly
     customLocation:  genMode==='custom' ? locationVariant : '',
     selectedTypes: types,
     imageCount: uploads.length
@@ -1299,6 +1300,11 @@ const POLL_INTERVAL = 30000;
 function showStatusPanel(jobId, totalImages, email, restore=false, productName='') {
   _currentJobId = jobId;
   try { localStorage.setItem('vs_active_job', JSON.stringify({ jobId, totalImages, email, productName })); } catch(e) {}
+  // Make sure we're on the batch tab
+  ['batch','jobs'].forEach(n => {
+    document.getElementById('tab-'+n).classList.toggle('active', n==='batch');
+    document.getElementById('page-'+n).classList.toggle('active', n==='batch');
+  });
   document.getElementById('mainForm').style.display    = 'none';
   document.getElementById('successPanel').style.display = 'block';
   document.getElementById('sCount').textContent  = totalImages;
@@ -1306,12 +1312,48 @@ function showStatusPanel(jobId, totalImages, email, restore=false, productName='
   document.getElementById('sJobId').textContent  = 'Job ID: ' + jobId;
   document.getElementById('dJobId').textContent  = jobId;
   document.getElementById('detailGrid').style.display = 'grid';
-  // Show the delivery email in the detail grid
   const dEmailEl = document.getElementById('dEmail');
   if (dEmailEl) dEmailEl.textContent = email;
+  // Show "＋ New Job" in tab bar while a job is being tracked
+  document.getElementById('tab-newjob').style.display = 'inline-flex';
   if (!restore) setStatusChip('pending');
   addJobToHistory(jobId, totalImages, productName);
   setTimeout(() => startPolling(), restore ? 0 : 4000);
+}
+
+function startNewJob() {
+  // Clear active job state and go back to the upload form
+  clearInterval(_pollTimer);
+  _currentJobId = null;
+  _currentImages = [];
+  try { localStorage.removeItem('vs_active_job'); } catch(e) {}
+  uploads=[]; avatarId='dynamic'; avatarCountry='india'; locationVariant=''; genMode='dynamic';
+  document.getElementById('thumbGrid').innerHTML = '';
+  document.getElementById('productName').value   = '';
+  document.getElementById('catSel').value        = '';
+  document.getElementById('subSel').innerHTML    = '<option value="">Select subcategory…</option>';
+  if (user) document.getElementById('emailDisp').value = user.email;
+  document.querySelectorAll('.tycb input').forEach(cb=>{cb.checked=true; cb.closest('.tycb').classList.add('on');});
+  setMode('dynamic');
+  document.getElementById('countBanner').classList.add('hidden');
+  document.getElementById('submitLbl').innerHTML = '✨ Generate Photos';
+  document.getElementById('submitErr').textContent = '';
+  document.getElementById('statusChip').className = 'status-chip pending';
+  document.getElementById('progTrack').style.display = 'none';
+  document.getElementById('progBar').style.width = '0%';
+  document.getElementById('doneSection').style.display = 'none';
+  document.getElementById('failedSection').style.display = 'none';
+  document.getElementById('detailGrid').style.display = 'none';
+  document.getElementById('imageLinks').innerHTML = '';
+  document.getElementById('tab-newjob').style.display = 'none';
+  document.getElementById('mainForm').style.display    = 'block';
+  document.getElementById('successPanel').style.display = 'none';
+  ['batch','jobs'].forEach(n => {
+    document.getElementById('tab-'+n).classList.toggle('active', n==='batch');
+    document.getElementById('page-'+n).classList.toggle('active', n==='batch');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  checkReady();
 }
 
 function startPolling() {
@@ -1443,7 +1485,8 @@ function showDoneSection(job) {
   updateHistoryRow(job.batch_job_id || _currentJobId, job.status || 'completed', successImages);
 }
 
-function resetAll() {
+function resetAll() { startNewJob(); }
+function _resetAll_unused() {
   clearInterval(_pollTimer);
   _currentJobId = null;
   _currentImages = [];
@@ -1581,11 +1624,11 @@ function switchTab(t) {
   if (t === 'jobs') {
     loadJobs();
   } else if (t === 'batch') {
-    // When returning to batch tab, show the correct sub-panel:
-    // if there's an active/tracked job → show status panel; else show the form
+    // Restore correct sub-panel: status tracker if job active, upload form otherwise
     const hasActiveJob = !!_currentJobId;
-    document.getElementById('mainForm').style.display    = hasActiveJob ? 'none' : 'block';
+    document.getElementById('mainForm').style.display     = hasActiveJob ? 'none'  : 'block';
     document.getElementById('successPanel').style.display = hasActiveJob ? 'block' : 'none';
+    if (hasActiveJob) window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
 
