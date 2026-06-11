@@ -328,7 +328,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 <body>
 
 <header class="hdr">
-  <a class="brand" href="index_6.html"><span>VinSnap</span></a>
+  <a class="brand" href="#"><span>VinSnap</span></a>
   <div class="hnav">
     <span class="ubadge" id="ubadge">Sign in to use</span>
     <button class="credit-badge" id="creditBadge" onclick="openUpgradeModal()" style="display:none" title="Your credits">💎 <span id="creditCount">—</span></button>
@@ -2030,9 +2030,40 @@ function jDlAll(jobId, e) {
   _blobQueue(imgs, jobId);
 }
 
-function jEsc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ══ SLIDER ═══════════════════════════════════════════════════════════
+let _sliderIdx = 0;
+let _sliderTimer = null;
+const SLIDE_COUNT = 10;
+
+function _sliderInit() {
+  const dots = document.getElementById('sliderDots');
+  if (!dots) return;
+  dots.innerHTML = '';
+  for (let i = 0; i < SLIDE_COUNT; i++) {
+    const d = document.createElement('button');
+    d.className = 'slider-dot' + (i === 0 ? ' on' : '');
+    d.onclick = () => sliderGo(i);
+    dots.appendChild(d);
+  }
+  _sliderTimer = setInterval(() => sliderMove(1), 4000);
 }
+
+function sliderMove(dir) {
+  sliderGo((_sliderIdx + dir + SLIDE_COUNT) % SLIDE_COUNT);
+}
+
+function sliderGo(idx) {
+  _sliderIdx = idx;
+  const track = document.getElementById('sliderTrack');
+  if (track) track.style.transform = `translateX(-${idx * 100}%)`;
+  document.querySelectorAll('.slider-dot').forEach((d, i) => {
+    d.classList.toggle('on', i === idx);
+  });
+  clearInterval(_sliderTimer);
+  _sliderTimer = setInterval(() => sliderMove(1), 4000);
+}
+
+document.addEventListener('DOMContentLoaded', _sliderInit);
 
 </script>
 </body>
