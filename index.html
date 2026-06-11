@@ -2030,6 +2030,10 @@ function jDlAll(jobId, e) {
   _blobQueue(imgs, jobId);
 }
 
+function jEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // ══ SLIDER ═══════════════════════════════════════════════════════════
 let _sliderIdx = 0;
 let _sliderTimer = null;
