@@ -1480,6 +1480,7 @@ async function doSubmit() {
     await respB.json();
 
     setSubmitStep('Submitted ✓');
+    _currentProductName = name;
     showStatusPanel(jobId, uploads.length * types.length, deliveryEmail, false, name);
 
   } catch(e) {
@@ -1698,8 +1699,10 @@ function showDoneSection(job) {
     const shotType = img.shot_type  || img.type || img.shotType || '';
     const imgIdx   = img.image_index != null ? img.image_index : (img.index != null ? img.index : i);
     if (!url) return;
-    const fname = `vinsnap_${String(parseInt(imgIdx)+1).padStart(3,'0')}_${shotType||'img'}.jpg`;
-    const label = `Image ${parseInt(imgIdx)+1}${shotType ? ' — ' + (typeLabels[shotType]||shotType) : ''}`;
+    const pName  = (_currentProductName || 'product').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_').slice(0,25) || 'product';
+    const imgNum = img.image_num || img.imageNum || (parseInt(imgIdx)+1);
+    const fname  = `${pName}_${shotType||'img'}${imgNum > 1 ? '_img'+imgNum : ''}.jpg`;
+    const label  = `${typeLabels[shotType] || (shotType ? shotType : 'Image '+(parseInt(imgIdx)+1))}`;
     const row = document.createElement('div');
     row.className = 'img-link';
     row.innerHTML = `<div><div class="img-link-label">${label}</div><div class="img-link-sub">${url.split('/').pop()}</div></div>`
@@ -1745,6 +1748,7 @@ function _resetAll_unused() {
 
 // ══ BLOB DOWNLOAD ════════════════════════════════════════════════════
 let _currentImages = [];
+let _currentProductName = '';
 
 async function blobDownload(url, fname, btnEl) {
   if (btnEl) { btnEl.textContent = '⏳'; btnEl.disabled = true; }
@@ -1779,7 +1783,9 @@ function _blobQueue(images, jobSuffix) {
     const url = img.public_url || img.publicUrl || img.url || img.ociUrl || '';
     const shotType = img.shot_type || img.type || img.shotType || '';
     const imgIdx   = img.image_index != null ? img.image_index : i;
-    const fname    = `vinsnap_${String(jobSuffix).slice(-6)}_${String(parseInt(imgIdx)+1).padStart(3,'0')}_${shotType||'img'}.jpg`;
+    const pName2   = (img.product_name || img.productName || _currentProductName || 'product').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_').slice(0,25) || 'product';
+    const imgNum2  = img.image_num || img.imageNum || (parseInt(imgIdx)+1);
+    const fname    = `${pName2}_${shotType||'img'}${imgNum2 > 1 ? '_img'+imgNum2 : ''}.jpg`;
     try {
       const r = await fetch(url); const blob = await r.blob();
       const burl = URL.createObjectURL(blob);
@@ -2058,11 +2064,17 @@ function renderJob(job) {
     const url = img.public_url || img.publicUrl || img.url || '';
     if (!url) return;
     const su = jEsc(url);
+    const sType  = img.shot_type || img.shotType || img.type || '';
+    const sNum   = img.image_num || img.imageNum || (i+1);
+    const SLBL   = {hero:'Hero',lifestyle1:'Lifestyle 1',lifestyle2:'Lifestyle 2',lifestyle3:'Lifestyle 3'};
+    const tLabel = SLBL[sType] || (sType ? sType : 'Image ' + (i+1));
+    const pn     = (name||'product').replace(/[^a-zA-Z0-9 ]/g,'').trim().replace(/ +/g,'_').slice(0,25);
+    const dlName = pn + '_' + (sType||'img') + (sNum > 1 ? '_img'+sNum : '') + '.jpg';
     tiles += '<div class="jtile">'
       + '<img class="jtile-img" src="' + su + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
       + '<div class="jtile-ph">&#128444;</div>'
-      + '<div class="jtile-foot"><span class="jtile-lbl">Image ' + (i+1) + '</span>'
-      + '<a class="j-save" href="' + su + '" download="vinsnap_img' + (i+1) + '.jpg" target="_blank">&#11015; Save</a>'
+      + '<div class="jtile-foot"><span class="jtile-lbl">' + tLabel + '</span>'
+      + '<a class="j-save" href="' + su + '" download="' + dlName + '" data-shot="' + sType + '" data-num="' + sNum + '" target="_blank">&#11015; Save</a>'
       + '</div></div>';
   });
 
@@ -2122,8 +2134,18 @@ function jDlAll(jobId, e) {
   if (e) e.preventDefault();
   const el = document.getElementById('jimgs-' + jobId);
   if (!el) return;
-  const links = el.querySelectorAll('.j-save');
-  const imgs = Array.from(links).map((a, i) => ({ public_url: a.href, image_index: i, shot_type: '' }));
+  // Use stored images data with shot_type if available
+  const jEntry = Object.values(_jExp).length >= 0 && window._jImgCache && window._jImgCache[jobId];
+  const jCard  = el.closest('.jcard');
+  const jName  = jCard ? (jCard.querySelector('.jcard-name')?.textContent || 'product') : 'product';
+  const links  = el.querySelectorAll('.j-save');
+  const imgs   = Array.from(links).map((a, i) => ({
+    public_url:   a.href,
+    image_index:  i,
+    shot_type:    a.dataset.shot || '',
+    image_num:    parseInt(a.dataset.num || '1'),
+    product_name: jName,
+  }));
   _blobQueue(imgs, jobId);
 }
 
