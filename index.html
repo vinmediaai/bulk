@@ -212,8 +212,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .slider-sub{font-size:.85rem;color:rgba(255,255,255,.55);margin-top:8px}
 .slider-track-wrap{position:relative;overflow:hidden;border-radius:16px}
 .slider-track{display:flex;transition:transform .6s cubic-bezier(.4,0,.2,1)}
-.slider-slide{min-width:100%;aspect-ratio:1/1;max-height:460px;position:relative;overflow:hidden;border-radius:16px;background:#1a1030}
+.slider-slide{min-width:100%;height:460px;position:relative;overflow:hidden;border-radius:16px;background:#1a1030}
 .slider-slide img{width:100%;height:100%;object-fit:cover;display:block;border-radius:16px}
+@media(max-width:600px){
+  .slider-slide{height:auto;aspect-ratio:3/4;max-height:75vw}
+  .slider-slide img{object-fit:contain}
+}
 .slider-slide .slide-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:rgba(255,255,255,.25);font-size:.82rem}
 .slider-slide .slide-placeholder span{font-size:2.5rem}
 .slider-dots{display:flex;justify-content:center;gap:8px;margin-top:16px}
@@ -259,18 +263,40 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .av-cat-note{font-size:11px;color:var(--accent2);padding:8px 20px;display:none;align-items:center;gap:6px}
 .av-cat-note.on{display:flex}
 
+/* ── UPLOAD TIPS ── */
+.upload-tips{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+@media(max-width:520px){.upload-tips{grid-template-columns:1fr}}
+.tips-col{border-radius:var(--rx);padding:12px 14px;font-size:.78rem;line-height:1.55}
+.tips-do{background:#f0fdf4;border:1px solid #bbf7d0}
+.tips-dont{background:#fff7f7;border:1px solid #fecaca}
+.tips-head{font-weight:700;font-size:.82rem;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.tips-do .tips-head{color:#166534}
+.tips-dont .tips-head{color:#991b1b}
+.tips-col ul{padding-left:16px;margin:0}
+.tips-col ul li{margin-bottom:4px;color:#374151}
+.tips-col ul li:last-child{margin-bottom:0}
+
 /* ── LOCATION GRID ── */
 .loc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 20px 16px}
-.loc-card{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 8px;text-align:center;cursor:pointer;transition:.2s;font-size:12px}
-.loc-card:hover{border-color:var(--accent2);background:rgba(99,102,241,.04)}
-.loc-card.on{border-color:var(--accent);background:rgba(99,102,241,.08);font-weight:600}
+.loc-card{border:1.5px solid var(--border);border-radius:var(--rx);padding:10px 8px;text-align:center;cursor:pointer;transition:.2s;font-size:12px;background:#fff;color:var(--text)}
+.loc-card:hover{border-color:var(--accent);background:rgba(99,102,241,.05)}
+.loc-card.on{border-color:var(--accent);background:rgba(99,102,241,.10);font-weight:700;color:var(--accent)}
 .loc-card-ico{font-size:18px;margin-bottom:4px}
 .loc-card-name{font-size:11px;font-weight:500}
-.loc-card.recommended{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.04)}
-.loc-card.fashion-loc{border-color:rgba(234,88,12,.35);background:rgba(234,88,12,.04)}
-.loc-card.fashion-loc:hover{border-color:rgba(234,88,12,.7);background:rgba(234,88,12,.08)}
-.loc-card.fashion-loc.on{border-color:rgb(234,88,12);background:rgba(234,88,12,.12);font-weight:600}
-.loc-card.fashion-loc .loc-card-name::after{content:' ✦';font-size:8px;color:rgb(234,88,12);vertical-align:super}
+.loc-card.recommended,.loc-card.fashion-loc{border-color:var(--border);background:#fff}
+.loc-card.recommended:hover,.loc-card.fashion-loc:hover{border-color:var(--accent);background:rgba(99,102,241,.05)}
+.loc-card.recommended.on,.loc-card.fashion-loc.on{border-color:var(--accent);background:rgba(99,102,241,.10);color:var(--accent)}
+.loc-card.fashion-loc .loc-card-name::after{content:''}
+
+/* ── SELECTION SUMMARY BAR ── */
+.sel-summary{background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1.5px solid #c4b5fd;border-radius:var(--rs);padding:14px 16px;margin-bottom:14px;display:none}
+.sel-summary.visible{display:block}
+.sel-summary-title{font-size:.72rem;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.sel-chips{display:flex;flex-wrap:wrap;gap:7px}
+.sel-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;font-size:.76rem;font-weight:600;background:#fff;border:1.5px solid #ddd6fe;color:#4c1d95}
+.sel-chip .chip-lbl{font-size:.65rem;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-right:1px}
+.sel-chip.empty{background:#f3f4f6;border-color:#e5e7eb;color:#9ca3af}
+.sel-chip.empty .chip-lbl{color:#9ca3af}
 
 /* ── ANALYSE BUTTON ── */
 
@@ -433,6 +459,32 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <div class="uhint">Up to 10 images · JPG PNG WebP · Max 10MB each</div>
     </div>
     <div class="tgrid" id="thumbGrid"></div>
+
+    <!-- DO / DON'T TIPS -->
+    <div class="upload-tips">
+      <div class="tips-col tips-do">
+        <div class="tips-head"><span>✅</span> Do's</div>
+        <ul>
+          <li>Use a plain, solid-color or white background for best output quality</li>
+          <li>Ensure your product is well-lit and clearly visible</li>
+          <li>Upload sharp, high-resolution images (min 800×800px)</li>
+          <li>One product per image — isolated cleanly</li>
+          <li>If uploading multiple images, make sure all match the selected category &amp; subcategory</li>
+          <li>Capture the product from multiple angles for variety</li>
+        </ul>
+      </div>
+      <div class="tips-col tips-dont">
+        <div class="tips-head"><span>❌</span> Don'ts</div>
+        <ul>
+          <li>Don't mix multiple different products in a single image</li>
+          <li>Avoid blurry or low-resolution photos</li>
+          <li>Don't use heavily patterned or busy backgrounds</li>
+          <li>Avoid extreme shadows, harsh flash glare, or overexposure</li>
+          <li>Don't upload images with watermarks or text overlays</li>
+          <li>Avoid screenshots or images with visible device frames</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <!-- PRODUCT DETAILS -->
@@ -878,6 +930,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <div id="creditCostRow" class="credit-row" style="display:none;margin-top:-6px">
     <span class="cr-lbl">This job will use</span>
     <span id="creditCostVal" style="font-weight:700;color:var(--accent)">— credits</span>
+  </div>
+
+  <!-- SELECTION SUMMARY BAR -->
+  <div class="sel-summary" id="selSummary">
+    <div class="sel-summary-title">📋 Your Selection Summary</div>
+    <div class="sel-chips" id="selChips"></div>
   </div>
 
   <button class="sbtn" id="submitBtn" onclick="doSubmit()" disabled>
@@ -1536,6 +1594,7 @@ function setMode(m) {
   document.getElementById('modeCus').classList.toggle('on', m==='custom');
   document.getElementById('customPanel').style.display = m==='custom' ? 'block' : 'none';
   if (m==='dynamic') { avatarId='dynamic'; avatarCountry='india'; locationVariant=''; }
+  updateSummaryBar();
 }
 
 // ══ AVATAR FUNCTIONS (minimal — only what's needed) ══════════════════
@@ -1559,6 +1618,7 @@ function selectAvatar(el) {
   }
   el.classList.add('on');
   avatarId = el.dataset.avatar;
+  updateSummaryBar();
 }
 
 // ══ LOCATION FUNCTION ════════════════════════════════════════════════
@@ -1566,6 +1626,7 @@ function selectLoc(el) {
   document.querySelectorAll('.loc-card').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
   locationVariant = el.dataset.loc;
+  updateSummaryBar();
 }
 
 // ══ SUBMIT ═══════════════════════════════════════════════════════════
@@ -1595,6 +1656,7 @@ function checkReady() {
     emailValid &&
     hasCredits;
   document.getElementById('submitBtn').disabled = !ok;
+  updateSummaryBar();
 
   // Show/hide upgrade card
   const upgradeCard = document.getElementById('upgradeCard');
@@ -1607,6 +1669,53 @@ function checkReady() {
   } else if (user && _userCredits) {
     upgradeCard.style.display = 'none';
   }
+}
+
+// ══ SELECTION SUMMARY BAR ════════════════════════════════════════════
+function updateSummaryBar() {
+  const bar = document.getElementById('selSummary');
+  const chips = document.getElementById('selChips');
+  if (!bar || !chips) return;
+
+  const productName = (document.getElementById('productName').value || '').trim();
+  const catEl = document.getElementById('catSel');
+  const subEl = document.getElementById('subSel');
+  const catText = catEl.options[catEl.selectedIndex]?.text || '';
+  const subText = subEl.options[subEl.selectedIndex]?.text || '';
+  const imgCount = (typeof uploads !== 'undefined') ? uploads.length : 0;
+  const mode = (typeof genMode !== 'undefined') ? genMode : 'dynamic';
+
+  // Get avatar display name
+  let avatarName = '—';
+  if (typeof avatarId !== 'undefined' && avatarId) {
+    if (avatarId === 'dynamic') {
+      avatarName = '🤖 Dynamic AI';
+    } else {
+      const avEl = document.querySelector(`.av-card.on, .av-dyn-card.on`);
+      avatarName = avEl ? (avEl.querySelector('.av-name')?.textContent || avatarId) : avatarId;
+    }
+  }
+
+  // Get location display name
+  let locName = '—';
+  const locEl = document.querySelector('.loc-card.on');
+  if (locEl) locName = locEl.querySelector('.loc-card-name')?.textContent || locEl.dataset.loc || '—';
+
+  const chip = (label, value, hasValue) =>
+    `<span class="sel-chip${hasValue ? '' : ' empty'}"><span class="chip-lbl">${label}</span>${value}</span>`;
+
+  chips.innerHTML =
+    chip('📸 Images', imgCount > 0 ? imgCount + (imgCount===1?' image':' images') : 'None', imgCount > 0) +
+    chip('🏷️ Product', productName || 'Not set', !!productName) +
+    chip('📂 Category', catText && catEl.value ? catText.replace(/^[^\w]*/, '') : 'Not selected', !!catEl.value) +
+    (subEl.value ? chip('📌 Subcategory', subText.replace(/^[^\w]*/, ''), true) : '') +
+    chip('⚡ Mode', mode === 'custom' ? '🎨 Custom' : '🤖 Dynamic', true) +
+    (mode === 'custom' ? chip('🧑 Avatar', avatarName, avatarName !== '—') : '') +
+    (mode === 'custom' ? chip('📍 Location', locName !== '—' ? locName : 'Not selected', locName !== '—') : '');
+
+  // Show bar only when there's something meaningful
+  const hasAny = imgCount > 0 || productName || catEl.value;
+  bar.classList.toggle('visible', hasAny);
 }
 
 async function doSubmit() {
