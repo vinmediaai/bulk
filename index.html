@@ -1105,25 +1105,23 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
   <div class="mcrd">
     <button class="mxbtn" onclick="closeModal()">✕</button>
 
-    <!-- VIEW: Sign In / Create Account tabs -->
+    <!-- VIEW 1: Sign In / Create Account tabs -->
     <div class="auth-view on" id="view-credentials">
       <div class="auth-tabs">
         <button class="auth-tab on" id="tabSignIn" onclick="switchAuthMode('signin')">Sign In</button>
         <button class="auth-tab" id="tabSignUp" onclick="switchAuthMode('signup')">Create Account</button>
       </div>
-
       <div class="mtitle" id="credTitle" style="margin-bottom:14px">Sign in to VinSnap</div>
       <input class="minp" id="liEmail" type="email" placeholder="Email address" autocomplete="email">
       <input class="minp" id="liPass" type="password" placeholder="Password" autocomplete="current-password">
-
-      <!-- Turnstile renders here, signup mode only -->
+      <!-- Turnstile — rendered for both sign-in and sign-up -->
       <div class="tsWidget" id="tsWidget"></div>
-
       <button class="mbtn" id="credBtn" onclick="doSignIn()">Sign In</button>
       <div class="mmsg" id="liMsg"></div>
+      <div class="mswitch" id="forgotRow"><a onclick="showResetRequest()">Forgot password?</a></div>
     </div>
 
-    <!-- VIEW: Verify OTP code -->
+    <!-- VIEW 2: Verify OTP — signup -->
     <div class="auth-view" id="view-verify">
       <button class="mback" onclick="switchAuthMode('signup')">← Back</button>
       <div class="mtitle">Verify your email</div>
@@ -1131,7 +1129,47 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
       <input class="otp-input" id="otpCode" type="text" inputmode="numeric" maxlength="6" placeholder="------" autocomplete="one-time-code">
       <button class="mbtn" id="verifyBtn" onclick="doVerifyOtp()">Verify &amp; Continue</button>
       <div class="mmsg" id="verifyMsg"></div>
-      <div class="resend-row">Didn't get a code? <a id="resendLink" onclick="doResendCode()">Resend code</a></div>
+      <!-- Resend has its own Turnstile since it's a separate captcha-protected call -->
+      <div class="resend-row">Didn't get a code?
+        <a id="resendLink" onclick="doResendCode()">Resend code</a>
+      </div>
+      <div class="tsWidget" id="tsResend" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <!-- VIEW 3: Reset password — enter email -->
+    <div class="auth-view" id="view-reset">
+      <button class="mback" onclick="switchAuthMode('signin')">← Back to Sign In</button>
+      <div class="mtitle">Reset your password</div>
+      <div class="otp-sub">Enter your account email and we'll send you a reset code.</div>
+      <input class="minp" id="resetEmail" type="email" placeholder="Email address" autocomplete="email">
+      <!-- Turnstile for the reset request — captcha-protected endpoint -->
+      <div class="tsWidget" id="tsReset"></div>
+      <button class="mbtn" id="resetBtn" onclick="doSendResetCode()">Send Reset Code</button>
+      <div class="mmsg" id="resetMsg"></div>
+    </div>
+
+    <!-- VIEW 4: Verify OTP — password reset -->
+    <div class="auth-view" id="view-reset-verify">
+      <button class="mback" onclick="showResetRequest()">← Back</button>
+      <div class="mtitle">Enter reset code</div>
+      <div class="otp-sub">Enter the 6-digit code sent to<br><strong id="resetVerifyEmailLbl"></strong></div>
+      <input class="otp-input" id="resetOtpCode" type="text" inputmode="numeric" maxlength="6" placeholder="------" autocomplete="one-time-code">
+      <button class="mbtn" id="resetVerifyBtn" onclick="doVerifyResetOtp()">Verify Code</button>
+      <div class="mmsg" id="resetVerifyMsg"></div>
+      <div class="resend-row">Didn't get a code?
+        <a id="resetResendLink" onclick="doResendResetCode()">Resend code</a>
+      </div>
+      <div class="tsWidget" id="tsResetResend" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <!-- VIEW 5: Set new password -->
+    <div class="auth-view" id="view-newpass">
+      <div class="mtitle">Set new password</div>
+      <div class="otp-sub">Choose a new password for<br><strong id="newPassEmailLbl"></strong></div>
+      <input class="minp" id="newPass1" type="password" placeholder="New password (min 6 chars)" autocomplete="new-password">
+      <input class="minp" id="newPass2" type="password" placeholder="Confirm new password" autocomplete="new-password">
+      <button class="mbtn" id="newPassBtn" onclick="doSetNewPassword()">Set New Password</button>
+      <div class="mmsg" id="newPassMsg"></div>
     </div>
 
   </div>
@@ -1201,7 +1239,7 @@ const SB_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 const WEBHOOK_A  = 'https://vinsnap-init-gdsqg4fv7q-uc.a.run.app/';
 const WEBHOOK_B  = 'https://vinsnap-process-gdsqg4fv7q-uc.a.run.app/';
 const GCS_BUCKET = 'vinsnap-store';
-const TURNSTILE_SITE_KEY = '0x4AAAAAADofEaJCDdqf1MWY'; // ← replace with the Site Key from Cloudflare Turnstile dashboard
+const TURNSTILE_SITE_KEY = 'YOUR_TURNSTILE_SITE_KEY'; // ← replace with the Site Key from Cloudflare Turnstile dashboard
 const { createClient } = window.supabase;
 const sb = createClient(SB_URL, SB_KEY);
 
@@ -1547,155 +1585,268 @@ sb.auth.onAuthStateChange((_e, session) => {
   checkReady();
 });
 // ══ AUTH: state ══════════════════════════════════════════════════════
-let _authMode       = 'signin';   // 'signin' | 'signup'
-let _tsWidgetId     = null;       // Turnstile widget instance id
-let _tsToken        = '';         // current Turnstile token
-let _pendingEmail   = '';         // email awaiting OTP verification
-let _resendCooldown = null;
+let _authMode       = 'signin';
+let _pendingEmail   = '';
+let _resendCooldown     = null;
+let _resetResendCooldown = null;
 
-// ── Turnstile render/reset ──────────────────────────────────────────
-function _renderTurnstile() {
-  if (!window.turnstile) { setTimeout(_renderTurnstile, 300); return; } // script still loading
-  const el = document.getElementById('tsWidget');
-  if (_tsWidgetId !== null) { turnstile.reset(_tsWidgetId); return; }
-  _tsWidgetId = turnstile.render(el, {
+// ── Turnstile: one instance per widget slot ───────────────────────────
+// Each captcha-protected call needs its own token.
+// We keep separate widget IDs and tokens for: main, resend, reset, reset-resend.
+const _ts = {
+  main:         { elId: 'tsWidget',      id: null, token: '' },
+  resend:       { elId: 'tsResend',      id: null, token: '' },
+  reset:        { elId: 'tsReset',       id: null, token: '' },
+  resetResend:  { elId: 'tsResetResend', id: null, token: '' },
+};
+
+function _renderTs(key) {
+  if (!window.turnstile) { setTimeout(() => _renderTs(key), 300); return; }
+  const w = _ts[key];
+  const el = document.getElementById(w.elId);
+  if (!el) return;
+  el.style.display = 'flex';
+  if (w.id !== null) { turnstile.reset(w.id); return; }
+  w.id = turnstile.render(el, {
     sitekey: TURNSTILE_SITE_KEY,
-    callback: (token) => { _tsToken = token; },
-    'expired-callback': () => { _tsToken = ''; },
-    'error-callback': () => { _tsToken = ''; }
+    callback:          (t) => { w.token = t; },
+    'expired-callback':()  => { w.token = ''; },
+    'error-callback':  ()  => { w.token = ''; },
   });
 }
-function _resetTurnstile() {
-  _tsToken = '';
-  if (_tsWidgetId !== null && window.turnstile) turnstile.reset(_tsWidgetId);
+function _resetTs(key) {
+  const w = _ts[key];
+  w.token = '';
+  if (w.id !== null && window.turnstile) turnstile.reset(w.id);
 }
 
-// ── Tab / view switching ────────────────────────────────────────────
+// ── View helpers ──────────────────────────────────────────────────────
+function _showView(id) {
+  ['view-credentials','view-verify','view-reset','view-reset-verify','view-newpass']
+    .forEach(v => document.getElementById(v).classList.toggle('on', v === id));
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────
 function switchAuthMode(mode) {
   _authMode = mode;
-  document.getElementById('view-credentials').classList.add('on');
-  document.getElementById('view-verify').classList.remove('on');
+  _showView('view-credentials');
   document.getElementById('tabSignIn').classList.toggle('on', mode==='signin');
   document.getElementById('tabSignUp').classList.toggle('on', mode==='signup');
   document.getElementById('credTitle').textContent = mode==='signin' ? 'Sign in to VinSnap' : 'Create your VinSnap account';
   document.getElementById('credBtn').textContent   = mode==='signin' ? 'Sign In' : 'Create Account';
   document.getElementById('credBtn').onclick       = mode==='signin' ? doSignIn : doSignUp;
   document.getElementById('liPass').autocomplete   = mode==='signin' ? 'current-password' : 'new-password';
+  document.getElementById('forgotRow').style.display = mode==='signin' ? '' : 'none';
   liMsg('', '');
-  _renderTurnstile(); // always needed — Supabase's captcha protection covers sign-in too, not just sign-up
+  _renderTs('main');
 }
 
 function _showVerifyView(email) {
   _pendingEmail = email;
-  document.getElementById('view-credentials').classList.remove('on');
-  document.getElementById('view-verify').classList.add('on');
+  _showView('view-verify');
   document.getElementById('verifyEmailLbl').textContent = email;
   document.getElementById('otpCode').value = '';
   verifyMsg('', '');
-  _startResendCooldown(45);
+  document.getElementById('tsResend').style.display = 'none';
+  _startCooldown('resendLink', 45, _resendCooldown, t => _resendCooldown = t);
   setTimeout(() => document.getElementById('otpCode').focus(), 100);
 }
 
-// ── Sign in (existing flow, unchanged) ──────────────────────────────
+function showResetRequest() {
+  _showView('view-reset');
+  resetMsg('', '');
+  document.getElementById('resetEmail').value = '';
+  _renderTs('reset');
+  setTimeout(() => document.getElementById('resetEmail').focus(), 100);
+}
+
+function _showResetVerifyView(email) {
+  _pendingEmail = email;
+  _showView('view-reset-verify');
+  document.getElementById('resetVerifyEmailLbl').textContent = email;
+  document.getElementById('resetOtpCode').value = '';
+  resetVerifyMsg('', '');
+  document.getElementById('tsResetResend').style.display = 'none';
+  _startCooldown('resetResendLink', 45, _resetResendCooldown, t => _resetResendCooldown = t);
+  setTimeout(() => document.getElementById('resetOtpCode').focus(), 100);
+}
+
+// ── Sign In ───────────────────────────────────────────────────────────
 async function doSignIn() {
   const email = document.getElementById('liEmail').value.trim();
   const pass  = document.getElementById('liPass').value;
   if (!email||!pass) { liMsg('Please fill in all fields.','err'); return; }
-  if (!_tsToken) { liMsg('Please complete the verification check.','err'); return; }
+  if (!_ts.main.token) { liMsg('Please complete the verification check.','err'); return; }
   const {error} = await sb.auth.signInWithPassword({
     email, password: pass,
-    options: { captchaToken: _tsToken }
+    options: { captchaToken: _ts.main.token }
   });
-  _resetTurnstile(); // single-use token — must reset after every attempt, success or fail
+  _resetTs('main');
   if (error) liMsg(error.message,'err');
 }
 
-// ── Sign up: email + password + Turnstile → triggers OTP email ─────
+// ── Sign Up ───────────────────────────────────────────────────────────
 async function doSignUp() {
   const email = document.getElementById('liEmail').value.trim();
   const pass  = document.getElementById('liPass').value;
   if (!email || !pass) { liMsg('Please fill in all fields.','err'); return; }
   if (pass.length < 6) { liMsg('Password must be at least 6 characters.','err'); return; }
-  if (!_tsToken) { liMsg('Please complete the verification check.','err'); return; }
-
+  if (!_ts.main.token) { liMsg('Please complete the verification check.','err'); return; }
   const btn = document.getElementById('credBtn');
   btn.disabled = true; btn.textContent = 'Creating account…';
-
   const { error } = await sb.auth.signUp({
     email, password: pass,
-    options: { captchaToken: _tsToken }
+    options: { captchaToken: _ts.main.token }
   });
-
+  _resetTs('main');
   btn.disabled = false; btn.textContent = 'Create Account';
-
-  if (error) {
-    liMsg(error.message, 'err');
-    _resetTurnstile(); // tokens are single-use — must reset after every attempt, success or fail
-    return;
-  }
-
-  _resetTurnstile();
+  if (error) { liMsg(error.message, 'err'); return; }
   _showVerifyView(email);
 }
 
-// ── Verify the 6-digit code emailed by Supabase ──────────────────────
+// ── Verify OTP — signup ───────────────────────────────────────────────
 async function doVerifyOtp() {
   const code = document.getElementById('otpCode').value.trim();
   if (!/^\d{6}$/.test(code)) { verifyMsg('Enter the 6-digit code from your email.','err'); return; }
-
   const btn = document.getElementById('verifyBtn');
   btn.disabled = true; btn.textContent = 'Verifying…';
-
   const { error } = await sb.auth.verifyOtp({
-    email: _pendingEmail,
-    token: code,
-    type: 'email'   // current type for email-signup OTP verification (signup/magiclink are deprecated)
+    email: _pendingEmail, token: code, type: 'email'
   });
-
   btn.disabled = false; btn.textContent = 'Verify & Continue';
-
   if (error) { verifyMsg(error.message, 'err'); return; }
-  // Success — onAuthStateChange fires automatically, signs the user in, closes modal.
+  // onAuthStateChange fires → signs user in → closeModal() called there
 }
 
-// ── Resend code, with cooldown to avoid hammering the email endpoint ─
+// ── Resend signup code (needs its own Turnstile token) ────────────────
 async function doResendCode() {
   const link = document.getElementById('resendLink');
   if (link.classList.contains('disabled')) return;
-  const { error } = await sb.auth.resend({ type: 'signup', email: _pendingEmail });
+
+  // If we don't have a fresh resend token yet, show the widget and wait
+  if (!_ts.resend.token) {
+    _renderTs('resend');
+    verifyMsg('Complete the check below then click Resend code again.', 'ok');
+    return;
+  }
+
+  const { error } = await sb.auth.resend({
+    type: 'signup',
+    email: _pendingEmail,
+    options: { captchaToken: _ts.resend.token }
+  });
+  _resetTs('resend');
+  document.getElementById('tsResend').style.display = 'none';
   if (error) { verifyMsg(error.message, 'err'); return; }
   verifyMsg('A new code has been sent.', 'ok');
-  _startResendCooldown(45);
+  _startCooldown('resendLink', 45, _resendCooldown, t => _resendCooldown = t);
 }
-function _startResendCooldown(seconds) {
-  clearInterval(_resendCooldown);
-  const link = document.getElementById('resendLink');
+
+// ── Send password reset code ──────────────────────────────────────────
+async function doSendResetCode() {
+  const email = document.getElementById('resetEmail').value.trim();
+  if (!email) { resetMsg('Please enter your email address.','err'); return; }
+  if (!_ts.reset.token) { resetMsg('Please complete the verification check.','err'); return; }
+  const btn = document.getElementById('resetBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  // resetPasswordForEmail is also captcha-protected when CAPTCHA is enabled in Supabase
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    captchaToken: _ts.reset.token
+  });
+  _resetTs('reset');
+  btn.disabled = false; btn.textContent = 'Send Reset Code';
+  if (error) { resetMsg(error.message, 'err'); return; }
+  _showResetVerifyView(email);
+}
+
+// ── Verify reset OTP ──────────────────────────────────────────────────
+async function doVerifyResetOtp() {
+  const code = document.getElementById('resetOtpCode').value.trim();
+  if (!/^\d{6}$/.test(code)) { resetVerifyMsg('Enter the 6-digit code from your email.','err'); return; }
+  const btn = document.getElementById('resetVerifyBtn');
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  const { error } = await sb.auth.verifyOtp({
+    email: _pendingEmail, token: code, type: 'recovery'
+  });
+  btn.disabled = false; btn.textContent = 'Verify Code';
+  if (error) { resetVerifyMsg(error.message, 'err'); return; }
+  // Code accepted — move to new-password screen
+  // (Supabase creates a temporary session we use to call updateUser)
+  _showView('view-newpass');
+  document.getElementById('newPassEmailLbl').textContent = _pendingEmail;
+  newPassMsg('', '');
+  setTimeout(() => document.getElementById('newPass1').focus(), 100);
+}
+
+// ── Resend reset code (needs its own Turnstile token) ─────────────────
+async function doResendResetCode() {
+  const link = document.getElementById('resetResendLink');
+  if (link.classList.contains('disabled')) return;
+  if (!_ts.resetResend.token) {
+    _renderTs('resetResend');
+    resetVerifyMsg('Complete the check below then click Resend code again.', 'ok');
+    return;
+  }
+  const { error } = await sb.auth.resetPasswordForEmail(_pendingEmail, {
+    captchaToken: _ts.resetResend.token
+  });
+  _resetTs('resetResend');
+  document.getElementById('tsResetResend').style.display = 'none';
+  if (error) { resetVerifyMsg(error.message, 'err'); return; }
+  resetVerifyMsg('A new reset code has been sent.', 'ok');
+  _startCooldown('resetResendLink', 45, _resetResendCooldown, t => _resetResendCooldown = t);
+}
+
+// ── Set new password ──────────────────────────────────────────────────
+async function doSetNewPassword() {
+  const p1 = document.getElementById('newPass1').value;
+  const p2 = document.getElementById('newPass2').value;
+  if (!p1 || p1.length < 6) { newPassMsg('Password must be at least 6 characters.','err'); return; }
+  if (p1 !== p2) { newPassMsg('Passwords do not match.','err'); return; }
+  const btn = document.getElementById('newPassBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  btn.disabled = false; btn.textContent = 'Set New Password';
+  if (error) { newPassMsg(error.message, 'err'); return; }
+  newPassMsg('Password updated! Signing you in…', 'ok');
+  setTimeout(() => closeModal(), 1500);
+}
+
+// ── Shared cooldown timer ─────────────────────────────────────────────
+function _startCooldown(linkId, seconds, timerRef, setRef) {
+  clearInterval(timerRef);
+  const link = document.getElementById(linkId);
   let remaining = seconds;
   link.classList.add('disabled');
   link.textContent = `Resend code (${remaining}s)`;
-  _resendCooldown = setInterval(() => {
+  const t = setInterval(() => {
     remaining--;
     if (remaining <= 0) {
-      clearInterval(_resendCooldown);
+      clearInterval(t); setRef(null);
       link.classList.remove('disabled');
       link.textContent = 'Resend code';
     } else {
       link.textContent = `Resend code (${remaining}s)`;
     }
   }, 1000);
+  setRef(t);
 }
 
 async function doSignOut() { await sb.auth.signOut(); }
-function openModal()  {
+function openModal() {
   document.getElementById('authModal').classList.add('open');
   switchAuthMode('signin');
 }
 function closeModal() {
   document.getElementById('authModal').classList.remove('open');
   clearInterval(_resendCooldown);
+  clearInterval(_resetResendCooldown);
 }
-function liMsg(msg,type)     { const el=document.getElementById('liMsg');     el.textContent=msg; el.className='mmsg '+type; }
-function verifyMsg(msg,type) { const el=document.getElementById('verifyMsg'); el.textContent=msg; el.className='mmsg '+type; }
+function liMsg(msg,type)          { const el=document.getElementById('liMsg');          el.textContent=msg; el.className='mmsg '+type; }
+function verifyMsg(msg,type)      { const el=document.getElementById('verifyMsg');      el.textContent=msg; el.className='mmsg '+type; }
+function resetMsg(msg,type)       { const el=document.getElementById('resetMsg');       el.textContent=msg; el.className='mmsg '+type; }
+function resetVerifyMsg(msg,type) { const el=document.getElementById('resetVerifyMsg'); el.textContent=msg; el.className='mmsg '+type; }
+function newPassMsg(msg,type)     { const el=document.getElementById('newPassMsg');     el.textContent=msg; el.className='mmsg '+type; }
 
 // ══ CATEGORY ═════════════════════════════════════════════════════════
 function onCatChange() {
